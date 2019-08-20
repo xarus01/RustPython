@@ -20,6 +20,7 @@ mod random;
 mod re;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod socket;
+mod sre;
 mod string;
 #[cfg(feature = "rustpython-compiler")]
 mod symtable;
@@ -66,8 +67,9 @@ pub fn get_module_inits() -> HashMap<String, StdlibInitFunc> {
         "marshal".to_string() => Box::new(marshal::make_module),
         "math".to_string() => Box::new(math::make_module),
         "platform".to_string() => Box::new(platform::make_module),
-        "re".to_string() => Box::new(re::make_module),
+        "rust_re".to_string() => Box::new(re::make_module),
         "random".to_string() => Box::new(random::make_module),
+        "_sre".to_string() => Box::new(sre::make_module),
         "_string".to_string() => Box::new(string::make_module),
         "struct".to_string() => Box::new(pystruct::make_module),
         "_thread".to_string() => Box::new(thread::make_module),
