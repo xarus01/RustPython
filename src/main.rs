@@ -463,13 +463,6 @@ fn shell_exec(vm: &VirtualMachine, source: &str, scope: Scope) -> ShellExecResul
     }
 }
 
-fn get_prompt(vm: &VirtualMachine, prompt_name: &str) -> Option<PyStringRef> {
-    vm.get_attribute(vm.sys_module.clone(), prompt_name)
-        .and_then(|prompt| vm.to_str(&prompt))
-        .ok()
-}
-
-#[cfg(not(target_os = "redox"))]
 fn run_shell(vm: &VirtualMachine, scope: Scope) -> PyResult<()> {
     use rustyline::{error::ReadlineError, Editor};
 
@@ -505,14 +498,13 @@ fn run_shell(vm: &VirtualMachine, scope: Scope) -> PyResult<()> {
     let mut continuing = false;
 
     loop {
-        let prompt = if continuing {
-            get_prompt(vm, "ps2")
-        } else {
-            get_prompt(vm, "ps1")
-        };
+        let prompt_name = if continuing { "ps2" } else { "ps1" };
+        let prompt = vm
+            .get_attribute(vm.sys_module.clone(), prompt_name)
+            .and_then(|prompt| vm.to_str(&prompt));
         let prompt = match prompt {
-            Some(ref s) => s.as_str(),
-            None => "",
+            Ok(ref s) => s.as_str(),
+            Err(_) => "",
         };
         let result = match repl.readline(prompt) {
             Ok(line) => {
@@ -574,42 +566,6 @@ fn run_shell(vm: &VirtualMachine, scope: Scope) -> PyResult<()> {
         }
     }
     repl.save_history(&repl_history_path).unwrap();
-
-    Ok(())
-}
-
-#[cfg(target_os = "redox")]
-fn run_shell(vm: &VirtualMachine, scope: Scope) -> PyResult<()> {
-    use std::io::{self, BufRead, Write};
-
-    println!(
-        "Welcome to the magnificent Rust Python {} interpreter!",
-        crate_version!()
-    );
-
-    fn print_prompt(vm: &VirtualMachine) {
-        let prompt = get_prompt(vm, "ps1");
-        let prompt = match prompt {
-            Some(ref s) => s.as_str(),
-            None => "",
-        };
-        print!("{}", prompt);
-        io::stdout().lock().flush().expect("flush failed");
-    }
-
-    let stdin = io::stdin();
-
-    print_prompt(vm);
-    for line in stdin.lock().lines() {
-        let mut line = line.expect("line failed");
-        line.push_str("\n");
-        match shell_exec(vm, &line, scope.clone()) {
-            ShellExecResult::Ok => {}
-            ShellExecResult::Continue => println!("Unexpected EOF"),
-            ShellExecResult::PyErr(exc) => print_exception(vm, &exc),
-        }
-        print_prompt(vm);
-    }
 
     Ok(())
 }
